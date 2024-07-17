@@ -10,9 +10,11 @@ import time
 import logging
 import torch
 import os
+import json
 
 from . import openparf as of
 from .placement import placer
+from .island_placement import island_placer
 from openparf import configure
 if configure.compile_configurations["ENABLE_ROUTER"] == "ON":
     from .routing import router
@@ -178,3 +180,15 @@ def route(params, pl_path):
     route_engine = router.Router(params)
     route_engine(pl_path)
     logging.info("route takes %.3f seconds" % (time.time() - tt))
+    
+
+def island_place(config_path:str, netlist_path:str):
+    with open(config_path, 'r') as config_file:
+        config_json = json.load(config_file)
+    with open(netlist_path, 'r') as netlist_file:
+        netlist_json = json.load(netlist_file)
+    
+    place_engine = island_placer.IslandPlacer(config_json, netlist_json)
+    #place_engine.test_ops()
+    place_engine()
+    print(config_json)

@@ -36,6 +36,15 @@ class HPWLFunction(Function):
         output = func(pos, flat_netpin, netpin_start, net_weights, net_mask)
         return output.sum(dim=0)
 
+class EdgeWiseHPWLFunction(Function):
+    @staticmethod
+    def forward(ctx, pos, flat_netpin, netpin_start, net_weights, net_mask):
+        if pos.is_cuda:
+            func = hpwl_cuda.forward
+        else:
+            func = hpwl_cpp.forward
+        output = func(pos, flat_netpin, netpin_start, net_weights, net_mask)
+        return output.sum(dim=1)
 
 class HPWL(nn.Module):
     """
@@ -61,6 +70,35 @@ class HPWL(nn.Module):
 
     def forward(self, pos):
         return HPWLFunction.apply(pos, self.flat_netpin, self.netpin_start,
+                                    self.net_weights, self.net_mask)
+
+    def __call__(self, pos):
+        return self.forward(pos)
+    
+class EdgeWiseHPWL(nn.Module):
+    """
+    @brief Compute half-perimeter wirelength using the net-by-net algorithm.
+    Guarantee determinism in parallel.
+    """
+    def __init__(self, flat_netpin, netpin_start, net_weights, net_mask):
+        """
+        @brief initialization
+        @param flat_netpin flat netpin map, length of #pins
+        @param netpin_start starting index in netpin map for each net,
+                            length of #nets+1, the last entry is #pins
+        @param pin2net_map pin2net map
+        @param net_weights weight of nets
+        @param net_mask whether to compute wirelength,
+                        1 means to compute, 0 means to ignore
+        """
+        super(EdgeWiseHPWL, self).__init__()
+        self.flat_netpin = flat_netpin
+        self.netpin_start = netpin_start
+        self.net_weights = net_weights
+        self.net_mask = net_mask
+
+    def forward(self, pos):
+        return EdgeWiseHPWLFunction.apply(pos, self.flat_netpin, self.netpin_start,
                                     self.net_weights, self.net_mask)
 
     def __call__(self, pos):
